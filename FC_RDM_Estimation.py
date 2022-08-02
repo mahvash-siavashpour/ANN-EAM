@@ -30,6 +30,10 @@ import arviz as az
 from scipy.stats import gaussian_kde
 
 sns.set_theme(style="whitegrid")
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
+plt.rcParams['pdf.fonttype'] = 42
+plt.rcParams['pdf.use14corefonts'] = True
 
 #### Prepare data
 ## Loading words and non-words with zipf and predicted probabilities
@@ -143,7 +147,7 @@ data_dict = {'N': N,
             }
 
 # set sampling parameters
-n_iter = 2000
+n_iter = 7000
 n_warmup = int(n_iter/2)
 n_chains = 4
 
@@ -189,7 +193,7 @@ fit = data_dict['fit']
 
 ## Parameters posterior plots
 az.plot_posterior(fit, var_names=['transf_mu_alpha', 'transf_mu_b', 'transf_mu_threshold_word', 'transf_mu_threshold_nonword', 'transf_mu_g', 'transf_mu_m'], hdi_prob=.95);
-plt.savefig(plots_path + 'Parameters')
+plt.savefig(plots_path + 'Parameters.pdf')
 
 ## Models mean parameters in different conditions
 # Loading model parameters for each trial
@@ -456,40 +460,44 @@ LF_predicted_bci = np.array([bci(LF_quantile_pred[x]) for x in quantiles])
 NW_predicted_bci = np.array([bci(NW_quantile_pred[x]) for x in quantiles])
 
 fig, axes = plt.subplots(1,3 , figsize=(35,8))
-plt.subplots_adjust(wspace=0.5, hspace=0.5)
+plt.subplots_adjust(wspace=0.2, hspace=0.5)
 
-axes[0].set_title('HF quantiles')
-axes[1].set_title('LF quantiles')
-axes[2].set_title('NW quantiles')
+axes[0].set_title('HF quantiles', fontweight="bold", size=20)
+axes[1].set_title('LF quantiles', fontweight="bold", size=20)
+axes[2].set_title('NW quantiles', fontweight="bold", size=20)
 
-axes[0].scatter(quantiles, HF_quantile_ex, color='blue', s=100)
-axes[1].scatter(quantiles, LF_quantile_ex, color='yellow', s=100)
-axes[2].scatter(quantiles, NW_quantile_ex, color='green', s=100)
+axes[0].scatter(quantiles, HF_quantile_ex, color='black', s=150)
+axes[1].scatter(quantiles, LF_quantile_ex, color='black', s=150)
+axes[2].scatter(quantiles, NW_quantile_ex, color='black', s=150)
 
 axes[0].fill_between(quantiles,
                 HF_predicted_bci[:, 0],
                 HF_predicted_bci[:, 1],
-                HF_predicted_bci[:, 0] < HF_predicted_bci[:, 1],  color = 'red', alpha=0.2)
+                HF_predicted_bci[:, 0] < HF_predicted_bci[:, 1],  color = 'gold', alpha=0.3)
 
 axes[1].fill_between(quantiles,
                 LF_predicted_bci[:, 0],
                 LF_predicted_bci[:, 1],
-                LF_predicted_bci[:, 0] < LF_predicted_bci[:, 1],  color = 'blue', alpha=0.2)
+                LF_predicted_bci[:, 0] < LF_predicted_bci[:, 1],  color = 'lightskyblue', alpha=0.3)
 
 axes[2].fill_between(quantiles,
                 NW_predicted_bci[:, 0],
                 NW_predicted_bci[:, 1],
-                NW_predicted_bci[:, 0] < NW_predicted_bci[:, 1],  color = 'green', alpha=0.2)
+                NW_predicted_bci[:, 0] < NW_predicted_bci[:, 1],  color = 'limegreen', alpha=0.3)
 
 
 for ax in axes:
-        ax.set_xlabel('Quantiles')
+        ax.set_xlabel('Quantiles', fontsize=20)
         ax.set_xticks(quantiles)
         ax.set_xticklabels(quantiles)
-        ax.set_ylabel('RTs upper boundary')
+        ax.set_ylabel('RTs upper boundary', fontsize=20)
+        for tick in ax.xaxis.get_major_ticks():
+                tick.label.set_fontsize(14)
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(14) 
 
 sns.despine()
-plt.savefig(plots_path + 'Quantiles Poseterior')
+plt.savefig(plots_path + 'Quantiles Poseterior.pdf')
 
 #### Mean Accuracy and RT Posterior Plots
 
@@ -539,15 +547,15 @@ def plot_posterior(x, data_mean, ax):
     ax.plot(xd, yd)
     ax.axvline(data_mean, color='red')
 
-fig, axes = plt.subplots(3,2 , figsize=(15,15))
-plt.subplots_adjust(wspace=0.5, hspace=0.5)
+fig, axes = plt.subplots(3,2 , figsize=(15,20))
+plt.subplots_adjust(wspace=0.3, hspace=0.5)
 
-axes[0][0].set_title('HF mean RT')
-axes[0][1].set_title('HF mean Response')
-axes[1][0].set_title('LF mean RT')
-axes[1][1].set_title('LF mean Response')
-axes[2][0].set_title('NW mean RT')
-axes[2][1].set_title('NW mean Response')
+axes[0][0].set_title('HF mean RT', fontweight="bold", size=16)
+axes[0][1].set_title('HF mean Response', fontweight="bold", size=16)
+axes[1][0].set_title('LF mean RT', fontweight="bold", size=16)
+axes[1][1].set_title('LF mean Response', fontweight="bold", size=16)
+axes[2][0].set_title('NW mean RT', fontweight="bold", size=16)
+axes[2][1].set_title('NW mean Response', fontweight="bold", size=16)
 
 plot_posterior(HF_pred_rt_mean, HF_data_rt_mean, axes[0][0])
 plot_posterior(HF_pred_resp_mean, HF_data_resp_mean, axes[0][1])
@@ -558,4 +566,18 @@ plot_posterior(LF_pred_resp_mean, LF_data_resp_mean, axes[1][1])
 plot_posterior(NW_pred_rt_mean, NW_data_rt_mean, axes[2][0])
 plot_posterior(NW_pred_resp_mean, NW_data_resp_mean, axes[2][1])
 
-plt.savefig(plots_path + 'Mean Accuracy and RT')
+for ax in axes:
+        ax[0].set_xlabel('RT', fontsize=14)
+        ax[1].set_xlabel('Accuracy', fontsize=14)
+        ax[0].set_ylabel('Density', fontsize=14)
+        ax[1].set_ylabel('Density', fontsize=14)
+        for tick in ax[0].xaxis.get_major_ticks():
+                tick.label.set_fontsize(12)
+        for tick in ax[0].yaxis.get_major_ticks():
+            tick.label.set_fontsize(12)
+        for tick in ax[1].xaxis.get_major_ticks():
+            tick.label.set_fontsize(12)
+        for tick in ax[1].yaxis.get_major_ticks():
+            tick.label.set_fontsize(12) 
+
+plt.savefig(plots_path + 'Mean Accuracy and RT.pdf')

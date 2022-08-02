@@ -126,6 +126,3 @@ ui-tests/playwright-report
 
 # VSCode
 .vscode
-
-# Folders
-check_points/

@@ -103,7 +103,7 @@ def remove_outliers(df, max_rt, min_rt, std_c=2.5):
 # In[6]:
 
 
-Number_Of_Participants = 5
+Number_Of_Participants = 30
 Number_Of_Trials = 400
 dataframes = []
 
@@ -209,10 +209,10 @@ data_dict = {'N': N,
              }
 
 # set sampling parameters
-n_iter = 1000
+n_iter = 5000
 n_warmup = int(n_iter/2)
 n_sample = int(n_iter/2)
-n_chains = 2
+n_chains = 4
 
 
 # Fitting the model

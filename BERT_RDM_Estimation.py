@@ -1,5 +1,13 @@
-#### Setting file paths
-## BERT-RDM Model
+#!/usr/bin/env python
+# coding: utf-8
+
+# ## Setting file paths
+
+# #### BERT-RDM Model 
+
+# In[1]:
+
+
 root = './'
 plots_root = root + 'Plots/'
 datasets_root = root + 'Datasets/'
@@ -17,11 +25,15 @@ dataset_path = datasets_root + dataset_name
 stan_file_path = stan_files_root + stan_file_name
 saved_model_path = saved_models_root + saved_model_name  + '.pkl'
 
-#### Importing Packages
+
+# ## Importing Packages
+
+# In[2]:
+
+
 import numpy as np
 import pandas as pd
-import pystan
-import rlssm
+import cmdstanpy 
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -29,16 +41,30 @@ import arviz as az
 
 from scipy.stats import gaussian_kde
 
+
+# In[3]:
+
+
 sns.set_theme(style="whitegrid")
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
 plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['pdf.use14corefonts'] = True
 
-#### Prepare data
-## Loading words and non-words with zipf and predicted probabilities
+
+# ## Prepare data
+
+# Loading words and non-words with zipf and predicted probabilities
+
+# In[4]:
+
+
 word_nword_df = pd.read_csv(dataset_path, header=None, names =['string', 'freq',  'label', 'zipf','category', 'word_prob', 'non_word_prob'])
 word_nword_df
+
+
+# In[5]:
+
 
 def remove_outliers(df, max_rt, min_rt, std_c=2.5):
     """
@@ -71,9 +97,13 @@ def remove_outliers(df, max_rt, min_rt, std_c=2.5):
     df = df[df['rt'] <= max_bound]
     return df
 
-## Reading and modifing each behavioral data file and combining all of them into a single behavioral dataframe
 
-Number_Of_Participants = 30
+# Reading and modifing each behavioral data file and combining all of them into a single behavioral dataframe
+
+# In[6]:
+
+
+Number_Of_Participants = 3
 Number_Of_Trials = 400
 dataframes = []
 
@@ -101,17 +131,57 @@ for i in range(Number_Of_Participants):
     # Minimum RT of participant in all trials (is needed for stan code)
     df['minRT'] = df['rt'].min()
     dataframes.append(df)
-    
+
+
+# In[7]:
+
+
 # Combining dataframes
 behavioural_df = pd.concat(dataframes)
 # Merging  behavioral dataframe with word_nonword_df to have words and non-words data with behavioral data
 behavioural_df = pd.merge(behavioural_df, word_nword_df, on='string', how='left').dropna().reset_index(drop=True)
 behavioural_df = behavioural_df.drop(["trial", "string_type", "freq"], axis=1)
 
-#### Stan Model and Estimation
-## Compiling stan model
-rdm_model = pystan.StanModel(file=stan_file_path)
-## Preparing model's inputs
+
+# In[8]:
+
+
+behavioural_df.head()
+
+
+# Predicted probabilities of words and non-words in different conditions in all trials
+# across participants
+
+# In[9]:
+
+
+behavioural_df.groupby(['category']).agg({'word_prob': ['mean', 'std', 'count', 'max', 'min'], 'non_word_prob': ['mean', 'std', 'count', 'max', 'min']})
+
+
+# RT and response description of words and non-words in different conditions in all trials
+# across participants
+
+# In[10]:
+
+
+behavioural_df.groupby(['category']).agg({'rt': ['mean', 'std', 'max', 'min'], 'response': ['mean', 'std', 'max', 'min']})
+
+
+# ## Stan Model and Estimation
+
+# Compiling stan model
+
+# In[13]:
+
+
+rdm_model = cmdstanpy.CmdStanModel(stan_file=stan_file_path)
+
+
+# Preparing model's inputs
+
+# In[15]:
+
+
 N = len(behavioural_df) # number of all trials
 participant = behavioural_df['participant'].to_numpy() # participants number
 x = behavioural_df.loc[:, ['word_prob', 'non_word_prob']].to_numpy() # predicted probabilites of words and non-words
@@ -147,61 +217,111 @@ data_dict = {'N': N,
             }
 
 # set sampling parameters
-n_iter = 7000
+n_iter = 1000
 n_warmup = int(n_iter/2)
-n_chains = 4
+n_sample = int(n_iter/2)
+n_chains = 2
 
-## Fitting the model
-fit = rdm_model.sampling(data=data_dict,
-                             iter=n_iter, 
-                             warmup=n_warmup,
-                             chains=n_chains,
-                             verbose=True)
 
-#### Model diagnostics
+# Fitting the model
+
+# In[16]:
+
+
+fit = rdm_model.sample(data=data_dict,
+                             iter_sampling=n_sample, 
+                             iter_warmup=n_warmup,
+                             chains=n_chains, 
+                             show_console=True)
+
+
+# ## Model diagnostics
+
+# In[17]:
+
+
 print("***hmc diagnostics:")
-print(pystan.check_hmc_diagnostics(fit), flush=True)
+print(fit.diagnose(), flush=True)
 
-summary_dict = fit.summary()
-df = pd.DataFrame(summary_dict['summary'], 
-                  columns=summary_dict['summary_colnames'], 
-                  index=summary_dict['summary_rownames'])
+
+# In[18]:
+
+
+df = fit.summary()
 
 print("***DF: ")
-print(df)
+df
+
+
+# In[19]:
+
 
 counter = 0
 print("***Rhat > 1.01: ")
-for f in df["Rhat"]:
+for f in df["R_hat"]:
     if f >= 1.01 or f <= 0.9:
         counter+=1
 print(counter)
 
-print(df.loc[df['Rhat']>1.01])
-print(df.loc[df['Rhat']>1.01].describe())
 
-## Saving Model
+# In[20]:
+
+
+df.loc[df['R_hat']>1.01]
+
+
+# In[21]:
+
+
+df.loc[df['R_hat']>1.01].describe()
+
+
+# Saving Model
+
+# In[53]:
+
+
 with open(saved_model_path, "wb") as f:
     pickle.dump({'model' : rdm_model, 'fit' : fit}, f, protocol=-1)
-    
-#### Check parameters
-## Loading Model
+
+
+# ## Check parameters
+
+# Loading Model
+
+# In[54]:
+
+
 with open(saved_model_path, "rb") as f:
     data_dict = pickle.load(f)
 
 fit = data_dict['fit']
 
-## Parameters posterior plots
+
+# Parameters posterior plots
+
+# In[57]:
+
+
 az.plot_posterior(fit, var_names=['transf_mu_alpha', 'transf_mu_b', 'transf_mu_threshold_word', 'transf_mu_threshold_nonword', 'transf_mu_g', 'transf_mu_m'], hdi_prob=.95);
 plt.savefig(plots_path + 'Parameters.pdf')
 
-## Models mean parameters in different conditions
+
+# #### Models mean parameters in different conditions
+
+# In[25]:
+
+
 # Loading model parameters for each trial
-drift_word_t = fit['drift_word_t']
-drift_nonword_t = fit['drift_nonword_t']
-threshold_t_word = fit['threshold_t_word']
-threshold_t_nonword = fit['threshold_t_nonword']
-ndt_t = fit['ndt_t']
+drift_word_t = fit.stan_variables()['drift_word_t']
+drift_nonword_t = fit.stan_variables()['drift_nonword_t']
+threshold_t_word = fit.stan_variables()['threshold_t_word']
+threshold_t_nonword = fit.stan_variables()['threshold_t_nonword']
+ndt_t = fit.stan_variables()['ndt_t']
+
+
+# In[26]:
+
 
 HF_condition_w = drift_word_t[:, behavioural_df['category']=="HF"]
 HF_condition_nw = drift_nonword_t[:, behavioural_df['category']=="HF"]
@@ -210,20 +330,36 @@ LF_condition_nw = drift_nonword_t[:, behavioural_df['category']=="LF"]
 NW_condition_w = drift_word_t[:, behavioural_df['category']=="NW"]
 NW_condition_nw = drift_nonword_t[:, behavioural_df['category']=="NW"]
 
+
+# In[27]:
+
+
 print('HF words, word drift mean and std:')
 print(np.mean(np.mean(HF_condition_w, axis=1)), np.std(np.mean(HF_condition_w, axis=1)))
 print('HF words, nonword drift mean and std:')
 print(np.mean(np.mean(HF_condition_nw, axis=1)), np.std(np.mean(HF_condition_nw, axis=1)))
+
+
+# In[28]:
+
 
 print('LF words word drift mean and std:')
 print(np.mean(np.mean(LF_condition_w, axis=1)), np.std(np.mean(LF_condition_w, axis=1)))
 print('LF words nonword drift mean and std:')
 print(np.mean(np.mean(LF_condition_nw, axis=1)), np.std(np.mean(LF_condition_nw, axis=1)))
 
+
+# In[29]:
+
+
 print('NW words word drift mean and std:')
 print(np.mean(np.mean(NW_condition_w, axis=1)), np.std(np.mean(NW_condition_w, axis=1)))
 print('NW words nonword drift mean and std:')
 print(np.mean(np.mean(NW_condition_nw, axis=1)), np.std(np.mean(NW_condition_nw, axis=1)))
+
+
+# In[30]:
+
 
 HF_condition_w = threshold_t_word[:, behavioural_df['category']=="HF"]
 HF_condition_nw = threshold_t_nonword[:, behavioural_df['category']=="HF"]
@@ -232,35 +368,68 @@ LF_condition_nw = threshold_t_nonword[:, behavioural_df['category']=="LF"]
 NW_condition_w = threshold_t_word[:, behavioural_df['category']=="NW"]
 NW_condition_nw = threshold_t_nonword[:, behavioural_df['category']=="NW"]
 
+
+# In[31]:
+
+
 print('HF words, word threshold mean and std:')
 print(np.mean(np.mean(HF_condition_w, axis=1)), np.std(np.mean(HF_condition_w, axis=1)))
 print('HF words, nonword threshold mean and std:')
 print(np.mean(np.mean(HF_condition_nw, axis=1)), np.std(np.mean(HF_condition_nw, axis=1)))
+
+
+# In[32]:
+
 
 print('LF words word threshold mean and std:')
 print(np.mean(np.mean(LF_condition_w, axis=1)), np.std(np.mean(LF_condition_w, axis=1)))
 print('LF words nonword threshold mean and std:')
 print(np.mean(np.mean(LF_condition_nw, axis=1)), np.std(np.mean(LF_condition_nw, axis=1)))
 
+
+# In[33]:
+
+
 print('NW words word threshold mean and std:')
 print(np.mean(np.mean(NW_condition_w, axis=1)), np.std(np.mean(NW_condition_w, axis=1)))
 print('NW words nonword threshold mean and std:')
 print(np.mean(np.mean(NW_condition_nw, axis=1)), np.std(np.mean(NW_condition_nw, axis=1)))
 
+
+# In[34]:
+
+
 HF_condition = ndt_t[:, behavioural_df['category']=="HF"]
 LF_condition = ndt_t[:, behavioural_df['category']=="LF"]
 NW_condition = ndt_t[:, behavioural_df['category']=="NW"]
 
+
+# In[35]:
+
+
 print('HF words ndt_t mean and std:')
 print(np.mean(np.mean(HF_condition, axis=1)), np.std(np.mean(HF_condition, axis=1)))
+
+
+# In[36]:
+
 
 print('LF words ndt_t mean and std:')
 print(np.mean(np.mean(LF_condition, axis=1)), np.std(np.mean(LF_condition, axis=1)))
 
+
+# In[37]:
+
+
 print('Non Words ndt_t mean and std:')
 print(np.mean(np.mean(NW_condition, axis=1)), np.std(np.mean(NW_condition, axis=1)))
 
-#### Calculating metrics
+
+# ## Calculating metrics
+
+# In[38]:
+
+
 def calculate_waic(log_likelihood, pointwise=False):
     """
     Returns model comparisions' metrics.
@@ -310,10 +479,19 @@ def calculate_waic(log_likelihood, pointwise=False):
                 'waic_se':waic_se}
     return out
 
-log_likelihood = fit['log_lik']
-print(calculate_waic(log_likelihood))
 
-#### Simulating RDM with estimated parameters
+# In[40]:
+
+
+log_likelihood = fit.stan_variables()['log_lik']
+calculate_waic(log_likelihood)
+
+
+# ## Simulating RDM with estimated parameters
+
+# In[41]:
+
+
 def random_rdm_2A(cor_drift, inc_drift, threshold_word, threshold_nonword, ndt, noise_constant=1, dt=0.001, max_rt=10):
     """ 
     Simulates behavior (rt and accuracy) according to the Racing Diffusion Model.
@@ -394,8 +572,17 @@ def random_rdm_2A(cor_drift, inc_drift, threshold_word, threshold_nonword, ndt, 
             ongoing[ended_incorrect] = False
     return rt, acc
 
-## Simulating RDM with estimated parameters
+
+# Simulating RDM with estimated parameters
+
+# In[42]:
+
+
 pp_rt, pp_response = random_rdm_2A(drift_word_t, drift_nonword_t, threshold_t_word, threshold_t_nonword, ndt_t, noise_constant=1, dt=0.001, max_rt=5)
+
+
+# In[43]:
+
 
 def bci(x, alpha=0.05):
     """
@@ -420,6 +607,10 @@ def bci(x, alpha=0.05):
 
     return interval
 
+
+# In[44]:
+
+
 # Predicted Data
 rt_predictions = pd.concat((pd.DataFrame(pp_rt, index=pd.Index(np.arange(1, len(pp_rt)+1))).T, behavioural_df['category']), axis=1)
 response_predictions = pd.concat((pd.DataFrame(pp_response, index=pd.Index(np.arange(1, len(pp_response)+1))).T, behavioural_df['category']), axis=1)
@@ -427,7 +618,11 @@ response_predictions = pd.concat((pd.DataFrame(pp_response, index=pd.Index(np.ar
 # Experiment Data
 experiment_data = behavioural_df.loc[:, ['rt', 'response', 'category']]
 
-## Separating RT and Response of predicted and experimental data for each condition
+
+# Separating RT and Response of predicted and experimental data for each condition
+
+# In[45]:
+
 
 HF_data = experiment_data.loc[experiment_data['category']=='HF']
 LF_data = experiment_data.loc[experiment_data['category']=='LF']
@@ -440,9 +635,18 @@ LF_pred_resp = response_predictions.loc[response_predictions['category']=='LF']
 NW_pred_rt = rt_predictions.loc[rt_predictions['category']=='NW']
 NW_pred_resp = response_predictions.loc[response_predictions['category']=='NW']
 
-#### Quantiles Posterior Predictions
+
+# ## Quantiles Posterior Predictions
+
+# In[46]:
+
+
 quantiles = [.1, .3, .5, .7, .9]
 percentiles = np.array(quantiles)*100
+
+
+# In[47]:
+
 
 # experiment Data quantile
 HF_quantile_ex = HF_data['rt'].quantile(quantiles)
@@ -458,6 +662,10 @@ NW_quantile_pred = NW_pred_rt.quantile(quantiles, axis=0).T
 HF_predicted_bci = np.array([bci(HF_quantile_pred[x]) for x in quantiles])
 LF_predicted_bci = np.array([bci(LF_quantile_pred[x]) for x in quantiles])
 NW_predicted_bci = np.array([bci(NW_quantile_pred[x]) for x in quantiles])
+
+
+# In[48]:
+
 
 fig, axes = plt.subplots(1,3 , figsize=(35,8))
 plt.subplots_adjust(wspace=0.2, hspace=0.5)
@@ -499,7 +707,11 @@ for ax in axes:
 sns.despine()
 plt.savefig(plots_path + 'Quantiles Poseterior.pdf')
 
-#### Mean Accuracy and RT Posterior Plots
+
+# ## Mean Accuracy and RT Posterior Plots
+
+# In[49]:
+
 
 HF_data_rt_mean = HF_data['rt'].mean()
 LF_data_rt_mean = LF_data['rt'].mean()
@@ -517,6 +729,10 @@ NW_data_resp_mean = NW_data['response'].mean()
 HF_pred_resp_mean = HF_pred_resp.mean(axis=0)
 LF_pred_resp_mean = LF_pred_resp.mean(axis=0)
 NW_pred_resp_mean = NW_pred_resp.mean(axis=0)
+
+
+# In[50]:
+
 
 def plot_posterior(x, data_mean, ax):
     """
@@ -542,10 +758,14 @@ def plot_posterior(x, data_mean, ax):
 
     low, high = bci(x)
     ax.fill_between(xd[np.logical_and(xd >= low, xd <= high)],
-                     yd[np.logical_and(xd >= low, xd <= high)])
+                     yd[np.logical_and(xd >= low, xd <= high)], color='lightsteelblue')
 
-    ax.plot(xd, yd)
+    ax.plot(xd, yd, color='slategray')
     ax.axvline(data_mean, color='red')
+
+
+# In[51]:
+
 
 fig, axes = plt.subplots(3,2 , figsize=(15,20))
 plt.subplots_adjust(wspace=0.3, hspace=0.5)
@@ -581,3 +801,10 @@ for ax in axes:
             tick.label.set_fontsize(12) 
 
 plt.savefig(plots_path + 'Mean Accuracy and RT.pdf')
+
+
+# In[ ]:
+
+
+
+

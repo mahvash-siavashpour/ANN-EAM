@@ -1,7 +1,7 @@
 # ANN-EAM
-A framework for combining artificial neural network with evidince accumulation models for lexical decision task
+A framework for combining artificial neural network with evidence accumulation models for lexical decision task
 
-## lexical-decision task datasets that have been used in this project:
+## Lexical-decision task datasets that have been used in this project:
 * English Lexicon Project (http://elexicon.wustl.edu/)
 * SUBTLEXus (https://www.ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexus)
 

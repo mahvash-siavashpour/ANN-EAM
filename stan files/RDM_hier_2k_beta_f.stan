@@ -51,7 +51,7 @@ data {
     int<lower=1, upper=L> participant[N];           // level (participant)
 
     vector[2] x[N];                                 // Semantic Word Probabilty x[n][1]:word probability x[n][2]:non-word probability
-    real<lower=0> frequency[N];                    // zipf values (representing frequency)
+    int<lower=0> frequency[N];                    // zipf values (representing frequency)
     int<lower=0,upper=1> response[N];               // 1-> word, 0->nonword
     real<lower=0> rt[N];                            // rt
     

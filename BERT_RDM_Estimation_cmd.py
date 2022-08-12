@@ -140,7 +140,7 @@ rdm_model = cmdstanpy.CmdStanModel(stan_file=stan_file_path)
 N = len(behavioural_df) # number of all trials
 participant = behavioural_df['participant'].to_numpy() # participants number
 x = behavioural_df.loc[:, ['word_prob', 'non_word_prob']].to_numpy() # predicted probabilites of words and non-words
-frequency = behavioural_df['zipf'].to_numpy() # zipf values
+frequency = behavioural_df['zipf'].to_numpy().astype(int) # zipf values
 response = behavioural_df['response'].to_numpy().astype(int) # participants responses
 rt = behavioural_df['rt'].to_numpy() # participants RTs 
 minRT = behavioural_df['minRT'].to_numpy() # participants min RT                     
@@ -172,7 +172,7 @@ data_dict = {'N': N,
             }
 
 # set sampling parameters
-n_iter = 5000
+n_iter = 7000
 n_warmup = int(n_iter/2)
 n_sample = int(n_iter/2)
 n_chains = 4
